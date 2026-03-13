@@ -1,8 +1,9 @@
-# AI補完計画 — 設計書テンプレート v1.4
+# AI補完計画 — 設計書テンプレート v1.5
 
 > このドキュメントは実際に中小企業で運用されているAI記憶継承システムの設計書を、
 > 個人情報を仮名化して公開したものです。そのまま自社・個人環境にカスタマイズして使えます。
 > v1.4: Grok 4.2 Expert（技術レビュー 9.6/10）+ ChatGPT Pro（法務レビュー 8点全採用）
+> v1.5: Lossless Context Management (LCM) 導入 + Observational Memory参照追加
 
 最終更新: 2026-03-13
 作成: ある経営者と、そのAI
@@ -65,10 +66,13 @@
 └─────────────────────────────────────┘
 ```
 
-### ① 発話層
+### ① 発話層 ★LCM導入推奨★
 **何:** 全エージェントの全セッション生ログ
 **形式:** .jsonl / .json / .md 等
-**保存先:** PII区分別フォルダ推奨
+**保存先（二重保護推奨）:**
+1. **Lossless Context Management (LCM)** — SQLiteに全メッセージ永久保存。compaction後も原文復元可能。DAGベース要約で検索・ドリルダウン対応
+2. **物理アーカイブ** — .jsonlファイルの定期バックアップ（災害復旧用）
+
 ```
 archive/
 ├── pii-high/      ← セッションログ（個人情報含む可能性）
@@ -76,8 +80,21 @@ archive/
 ├── general/       ← workspace・スキル・設定ファイル
 └── _stats.json
 ```
+
+**LCM導入方法（OpenClaw環境）:**
+```bash
+openclaw plugins install @martian-engineering/lossless-claw
+```
+- 閾値75%で自動compaction（カスタマイズ可能）
+- lcm_grep: 全会話履歴の正規表現/全文検索
+- lcm_expand: 要約から原文メッセージへのドリルダウン
+
+**関連技術:**
+- [Mastra Observational Memory](https://mastra.ai) — Observer/Reflectorによるイベントベース判断ログ圧縮（LongMemEval 94.87%）。「要約より判断ログが優れる」ことを実証。本設計のL2/L3自動化の理論的根拠
+
 **収集手段:**
-- アーカイブスクリプト（定期自動実行）
+- LCMプラグイン（自動・推奨）
+- アーカイブスクリプト（定期自動実行・バックアップ用）
 - 各チャンネルのログ収集（Discord / LINE / Slack等）
 
 ### ② 判断層
